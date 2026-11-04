@@ -5,7 +5,7 @@ One or two sentences on what should be true when this is done.
 ## Acceptance criteria
 
 - [ ] A statement you can check by looking at the result
-- [ ] One line per case, including the awkward ones
+- [ ] One line per case, including the awkward ones (empty, error, no permission)
 
 ## Out of scope
 
@@ -13,6 +13,8 @@ One or two sentences on what should be true when this is done.
 
 ## Constraints
 
-- Files this should stay inside
+- Repos touched (from the Workspace config)
+- UI: yes/no (yes → the designer runs before the engineer)
+- Files/areas this should stay inside
 - Libraries to use
-- Guidelines to follow
+- Guidelines to follow (repo `CLAUDE.md`, the design system)
