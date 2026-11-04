@@ -13,6 +13,7 @@ One or two sentences on what should be true when this is done.
 
 ## Constraints
 
+- Repos touched
 - Files this should stay inside
 - Libraries to use
 - Guidelines to follow
