@@ -1,2 +1,8 @@
 .DS_Store
 .worktrees/
+
+# Claude Code local files (session logs such as task-steps.md, local settings).
+# Only the shared agent and command definitions are tracked.
+.claude/*
+!.claude/agents/
+!.claude/commands/
