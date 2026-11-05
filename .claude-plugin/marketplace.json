@@ -1,0 +1,11 @@
+{
+  "name": "ai-team",
+  "owner": { "name": "wrightkhlebisol" },
+  "plugins": [
+    {
+      "name": "ai-team",
+      "source": "./",
+      "description": "PM, designer, engineer, QA and reviewer subagents plus the orchestrator loop and commands."
+    }
+  ]
+}

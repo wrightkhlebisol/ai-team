@@ -1,18 +1,23 @@
+---
+name: team-process
+description: The ai-team agent loop (groom → plan → design → build → QA → review → PR) with this session as orchestrator. Use whenever a request will change code beyond a trivial fix (typo, one-line config, a change the user dictates exactly), even when asked in plain words, unless the user says to skip the process. Also loaded by /ai-team:work-issue, /ai-team:work-backlog and /ai-team:plan-project.
+---
+
 # Agent team process
 
 ## Orchestrator
 
 The main session is the orchestrator. It runs the loop below and launches the
-PM, designer, engineer, QA and reviewer as subagents (defined in
-`.claude/agents/`). It owns the implementation plan, the git workspaces,
+PM, designer, engineer, QA and reviewer as subagents (the `ai-team` plugin's
+agents, launched as `ai-team:<role>`). It owns the implementation plan, the git workspaces,
 labels, PRs and escalation. It does not groom, design, implement or test
 itself.
 
 Entry points:
 
-- `/work-issue <n>`: run one issue through the loop
-- `/work-backlog [--auto]`: run open issues one after another
-- `/plan-project`: PO session to shape scope and file issues
+- `/ai-team:work-issue <n> [--auto]`: run one issue through the loop
+- `/ai-team:work-backlog [--auto]`: run open issues one after another
+- `/ai-team:plan-project`: PO session to shape scope and file issues
 
 Any request that will change code beyond a trivial fix (typo, one-line
 config, a change the user dictates exactly) goes through this loop, even when
@@ -22,14 +27,17 @@ process", "just do it").
 
 ## Roles
 
-| Role | Runs as | Follows | Changes code? |
-| --- | --- | --- | --- |
-| PO | the main session (it talks to the user) | `_docs/team/po.md` | no |
-| PM | `pm` subagent | `_docs/team/pm.md` | no |
-| Product designer | `product-designer` subagent | `_docs/team/product-designer.md` | no (specs and mockups only) |
-| Engineer | `software-engineer` subagent | `_docs/team/software-engineer.md` | yes |
-| QA | `qa-engineer` subagent | `_docs/team/qa-engineer.md` | no |
-| Reviewer | `code-reviewer` subagent | `_docs/team/code-reviewer.md` | no |
+| Role | Runs as | Changes code? |
+| --- | --- | --- |
+| PO | the main session (it talks to the user), following `po.md` in this skill's folder | no |
+| PM | `ai-team:pm` subagent | no |
+| Product designer | `ai-team:product-designer` subagent | no (specs and mockups only) |
+| Engineer | `ai-team:software-engineer` subagent | yes |
+| QA | `ai-team:qa-engineer` subagent | no |
+| Reviewer | `ai-team:code-reviewer` subagent | no |
+
+Each role's rules live in its agent definition. Project-specific rules for a
+role go in the project's "Agent team notes" (see Workspace config).
 
 Subagents can't ask the user anything. Anything that needs a human decision
 comes back to the orchestrator, which asks.
@@ -40,11 +48,12 @@ address.
 
 ## Lifecycle
 
-1. **Pick.** Take the issue (`/work-issue <n>`) or the next open issue that
+1. **Pick.** Take the issue (`/ai-team:work-issue <n>`) or the next open issue that
    is not labelled `needs-human`, `in-progress` or `ready-for-review`. Read
    it in full, including comments.
 2. **Groom.** Launch `pm`. Done when the issue body follows
-   `_docs/task-template.md` and it is labelled `groomed`.
+   the task template (Goal, Acceptance criteria, Out of scope, Constraints)
+   and it is labelled `groomed`.
 3. **Plan.** Orchestrator posts the implementation plan comment and sets up
    the workspaces (see below). Label `in-progress`.
 4. **Checkpoint 1: plan approval.** Show the user the acceptance criteria
@@ -97,14 +106,23 @@ Each project using this team declares, in its root `CLAUDE.md` under a
 - Shared environments: deploy targets never to deploy to from a feature
   branch
 - Issue tracker: the GitHub repo that holds the backlog
-- Design system: where it lives (see `_docs/team/product-designer.md`)
+- Design system: where it lives (README first), if the project has UI
+- Test environment: how features are tested locally (emulators, local
+  servers, seeded data), and on which ports
 
 Missing config → defaults: the current repo, base `origin/dev` if it exists
 else `origin/main`, worktree root `.worktrees/`, tracker = the current repo.
 
+Optionally, an "Agent team notes" section in the same `CLAUDE.md` adds
+project rules per role, as a `### <role>` heading each (`pm`,
+`product-designer`, `software-engineer`, `qa-engineer`, `code-reviewer`,
+`orchestrator`): the checks a reviewer must make, where the screens live,
+domain conventions. Every agent reads its entry first; notes win over the
+generic rules where they disagree.
+
 ## Implementation plan & workspace (step 3)
 
-Read the "Workspace config" (see below) (repos, base branches,
+Read the "Workspace config" (above) (repos, base branches,
 worktree root, shared environments, issue tracker). Then post the plan as an
 issue comment:
 
@@ -137,7 +155,7 @@ worktree. Never switch branches or stash in someone's checkout:
 
 `--unset-upstream` stops a bare `git push` from pushing to the base branch; push with
 `git push -u origin <branch>`. Work in place only when the repo is clean and
-on its base branch with nothing in flight. In a new worktree, run
+on its base branch with nothing in flight. In a new worktree,
 install dependencies and copy the gitignored local env files (`.env*`) in from the
 main checkout.
 
