@@ -16,7 +16,8 @@ itself.
 Entry points:
 
 - `/ai-team:work-issue <n> [--auto]`: run one issue through the loop
-- `/ai-team:work-backlog [--auto]`: run open issues one after another
+- `/ai-team:work-backlog [--auto]`: run open issues in waves, pipelined
+  (see Pipelining)
 - `/ai-team:plan-project`: PO session to shape scope and file issues
 
 Any request that will change code beyond a trivial fix (typo, one-line
@@ -161,10 +162,46 @@ main checkout.
 
 Subagents never pick, create or switch workspaces themselves.
 
+## Pipelining
+
+The orchestrator keeps work moving instead of waiting on one subagent at a
+time. Subagents run in the background; launch independent ones together.
+
+- **Groom ahead.** Grooming changes no code. While an issue is being built,
+  groom the upcoming ones in parallel (one PM subagent per few issues).
+  Groomed criteria written before a dependency lands can go stale: QA sends
+  a wrong criterion back to step 2 as usual
+- **Design ahead.** Design specs are issue comments, not code. Launch the
+  designer for any groomed UI issue whose design-system dependency is in
+  place (or is the issue being designed)
+- **Build in parallel.** Two issues can be built at the same time when
+  neither depends on the other and they edit different files. Each gets
+  its own worktree and branch. Checkpoint 1 still applies per issue; a user
+  asking to run an issue in parallel approves starting it, but show them
+  its criteria and plan
+- **Stack on in-flight dependencies.** If an issue needs another's
+  unmerged work, branch from that issue's branch instead of waiting:
+
+      git -C <repo> worktree add <worktree-root>/<repo>-<n>-<topic> -b <branch> <parent-branch>
+
+  Record `Base: <parent-branch> (stacked on #<parent>)` in the plan. Give
+  reviewer and QA that base. Open the PR against the parent branch, say
+  "Stacked on #<parent>'s PR" in the body, and retarget it to the base
+  branch once the parent merges (rebase if needed)
+- **Share setup files carefully.** When a parallel issue needs something
+  the in-flight issue owns (dependencies, test config), don't edit those
+  files in both branches. Use a temporary, uncommitted workaround (e.g.
+  `npm i --no-save`) and state in the plan how QA runs the checks until
+  the owner merges
+- **Checkpoints don't block others.** While one issue waits for the user at
+  a checkpoint, keep the other in-flight issues moving
+
 ## Rules
 
-- One issue at a time per orchestrator session. Parallel issues need
-  separate sessions, each in its own worktrees, with no shared files
+- Don't wait idle. While a subagent works, launch the next independent
+  step (see Pipelining). Several issues may be in flight in one session;
+  each build runs in its own worktree, and no two in-flight builds edit
+  the same files
 - Read the acceptance criteria before starting and before opening the PR
 - Commit regularly, on the issue's branch, inside its workspace, using
   conventional commits (`feat(web): …`, `fix(api): …`)
