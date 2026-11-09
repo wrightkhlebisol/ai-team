@@ -27,7 +27,9 @@ not write it, and you start with no context but the issue and the diff.
 
 - Work only in the workspace path(s) the orchestrator gave you
 - Read the issue and its acceptance criteria
-- Read the diff against the base branch: `git -C <workspace> diff origin/<base>...HEAD`
+- Read the diff against the base the orchestrator gave you:
+  `git -C <workspace> diff <base>...HEAD`. For a stacked issue the base is the
+  parent issue's branch, so you review only this issue's changes
 - Read each touched repo's `CLAUDE.md` and check the diff follows it
 - Look for:
   - Bugs: wrong logic, unhandled errors, race conditions, broken edge cases

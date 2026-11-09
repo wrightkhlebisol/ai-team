@@ -29,7 +29,7 @@ To turn it on for everyone working in a repo, commit this to the repo's
 ```
 /ai-team:plan-project              shape a feature with the PO and file issues
 /ai-team:work-issue 42             run issue #42 through the loop, with checkpoints
-/ai-team:work-backlog              work open issues one after another, with checkpoints
+/ai-team:work-backlog              work open issues in pipelined waves, with checkpoints
 /ai-team:work-backlog --auto       same, without the two checkpoints
 "skip the process, just fix X"     do a change directly, outside the loop
 ```
