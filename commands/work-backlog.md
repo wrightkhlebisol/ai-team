@@ -18,7 +18,9 @@ Arguments: $ARGUMENTS
    flight, minus any that would edit the same files as another build in the
    wave. Show the user the waves and confirm, unless `--auto`
 4. Run each issue through the lifecycle as `/ai-team:work-issue` does, with
-   the builds of a wave running at the same time, each in its own worktree.
+   the builds of a wave running at the same time, each in its own worktree,
+   as many at once as `capacity.sh` admits (see Resource budget in the
+   skill); queue the rest.
    As soon as an issue frees up (PR opened, or `needs-human`), start the next
    ready issue instead of waiting for the whole wave
 5. When an issue hits `needs-human`, leave it, keep the rest moving, and hold

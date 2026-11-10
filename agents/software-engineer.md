@@ -44,6 +44,11 @@ While you work:
 - Commit regularly on the issue's branch, with conventional commit messages
 - Don't build anything outside scope, however useful. Note it in your
   comment instead, so the orchestrator can file a follow-up
+- Keep to the resource limits the orchestrator gives you: run full test
+  suites, whole-repo type checks, native builds and UI-test runs through
+  the `heavy.sh` wrapper it names, cap test-runner workers as told, use
+  only the simulator/emulator assigned to you, and shut down any you
+  booted before handing back
 - Do not deploy anything, and do not close the issue
 
 Before you hand back, run in every repo you touched: the test suite, the

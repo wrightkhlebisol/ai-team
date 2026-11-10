@@ -48,10 +48,32 @@ Optionally add an **Agent team notes** section with a `### <role>` heading per
 role for project rules the generic agents can't know: the authz helper a
 reviewer must look for, where the screens live, how money is stored.
 
+## Resource budget
+
+Parallel agents share your machine, and their test suites, builds and
+simulators can freeze it. Before launching agents the orchestrator runs
+`skills/team-process/scripts/capacity.sh`, which measures CPU and RAM and
+admits only what fits under a target (50% by default), queueing the rest:
+
+```
+$ capacity.sh --target 50 qa-sim=4 code-reviewer=3
+Machine:  12 cores, 24.0 GB RAM
+Now:      CPU 18% (load 2.10), RAM 41% (9.8 GB), simulators booted: 1
+Budget:   to 50%: 3.90 cores, 2.20 GB
+Launch:   code-reviewer=3
+Queue:    qa-sim=4
+```
+
+Agents run full test suites and native builds through
+`scripts/heavy.sh`, a machine-wide slot lock, so they take turns instead of
+all compiling at once. Set a project's target, measured cost profiles, test
+worker cap and simulator limit under "Resource budget" in its Workspace
+config.
+
 ## What's in the plugin
 
 | Path | What |
 | --- | --- |
 | `agents/` | the five role subagents (`ai-team:pm`, `ai-team:product-designer`, `ai-team:software-engineer`, `ai-team:qa-engineer`, `ai-team:code-reviewer`) |
 | `commands/` | `work-issue`, `work-backlog`, `plan-project` |
-| `skills/team-process/` | the orchestrator loop (`SKILL.md`) and the Product Owner guide (`po.md`) |
+| `skills/team-process/` | the orchestrator loop (`SKILL.md`), the Product Owner guide (`po.md`), and `scripts/capacity.sh` / `scripts/heavy.sh` for the resource budget |
