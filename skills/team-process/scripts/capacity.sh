@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # =============================================================================
-# capacity.sh — how many ai-team subagents can start right now without pushing
-# the machine past a target share of its CPU and RAM.
+# capacity.sh — how many ai-team subagents can start right now, given a
+# budget of CPU and RAM: by default half of what is free at this moment.
 # =============================================================================
 #
 # WHY THIS EXISTS
@@ -15,26 +15,44 @@
 #   now and which to queue.
 #
 # USAGE
-#   capacity.sh [--target PCT] [--costs FILE] [--json] ROLE[=COUNT] ...
+#   capacity.sh [--share PCT | --target PCT] [--costs FILE] [--json] ROLE[=COUNT] ...
 #
 #   ROLE        A cost profile name (see DEFAULT COSTS below, or --costs FILE).
 #               "qa-sim=4" asks for four of that role; a bare "pm" means one.
 #               Roles are admitted in the order given, so put the most
 #               important first (e.g. blocking fixes before new work).
-#   --target    Share of total CPU and RAM the machine may reach, in percent
-#               (default 50). Budget = target x total - what is in use now.
+#   --share     (default mode, PCT 50) Give the agents PCT percent of what is
+#               FREE right now. Budget = share x (total - in use). Whatever
+#               the user already has open (editor, Docker, browser) never
+#               counts against the agents, and the other (100 - PCT)% of the
+#               free resources stays free for the user.
+#   --target    (alternative mode) Let the whole machine reach PCT percent of
+#               its total CPU and RAM. Budget = target x total - in use. If
+#               the user's own apps already use PCT%, nothing is admitted.
+#               If both flags are given, the last one wins.
 #   --costs     A file of extra or overriding profiles, one per line:
 #                   name  ram_gb  cpu_cores     # comment
 #               Later lines win, so a project file can override a default.
 #   --json      Print one JSON object instead of the human summary.
 #
 # EXAMPLE
-#   capacity.sh --target 50 qa-sim=4 code-reviewer=3 software-engineer=1
+#   capacity.sh qa-sim=2 code-reviewer=3 software-engineer=1
 #     Machine:  12 cores, 24.0 GB RAM
-#     Now:      CPU 18% (load 2.10), RAM 41% (9.8 GB), simulators booted: 1
-#     Budget:   to 50%: 3.90 cores, 2.20 GB
-#     Launch:   code-reviewer=3
-#     Queue:    qa-sim=4,software-engineer=1
+#     Now:      CPU 37% (load 4.48), RAM 51% (12.2 GB), simulators booted: 1
+#     Budget:   50% of free: 3.76 cores, 5.90 GB
+#     Launch:   qa-sim=1,code-reviewer=1
+#     Queue:    qa-sim=1,code-reviewer=2,software-engineer=1
+#
+# MEASURE AT THE RIGHT TIME
+#   An agent that was just launched hasn't started its heavy commands yet,
+#   so a measurement taken right after a launch looks freer than it is.
+#   Launch everything one call admits together, then measure again only when
+#   an agent FINISHES (its usage has gone) to decide the next launch.
+#   In share mode, agents already running count as "in use", so each refill
+#   gets PCT% of what is STILL free. With 50%: the first launch may use half
+#   the free resources, the next a quarter of the original, and so on. The
+#   agents together never take all of what was free, so the user always
+#   keeps headroom. The trade-off: later refills get smaller budgets.
 #
 # HOW IT MEASURES
 #   CPU in use  = the 1-minute load average (runnable processes). Compared
@@ -47,7 +65,7 @@
 #   it is better to under-admit and queue than to overshoot and crash.
 #
 # EXIT CODES
-#   0 always on success (the answer is in the output, not the exit code);
+#   0 on success (the answer is in the output, not the exit code);
 #   2 for a bad argument or a missing costs file.
 # =============================================================================
 
@@ -59,21 +77,25 @@ set -euo pipefail
 # ---------------------------------------------------------------------------
 # 1. Parse arguments
 # ---------------------------------------------------------------------------
-target=50        # percent of the machine we allow ourselves to reach
+mode=share       # "share" = PCT of what is free; "target" = PCT of the machine
+pct=50           # the percentage for whichever mode is in use
 costs_file=""    # optional project-specific profiles
 json=0           # 1 = machine-readable output
 requests=()      # the ROLE[=COUNT] arguments, in priority order
 
 while [ $# -gt 0 ]; do
   case "$1" in
-    # Accept both "--target 50" and "--target=50" styles.
-    --target) target="$2"; shift 2 ;;
-    --target=*) target="${1#*=}"; shift ;;
+    # Accept both "--share 50" and "--share=50" styles (same for --target).
+    # Each flag sets the mode as well as the percentage; the last one wins.
+    --share) mode=share; pct="$2"; shift 2 ;;
+    --share=*) mode=share; pct="${1#*=}"; shift ;;
+    --target) mode=target; pct="$2"; shift 2 ;;
+    --target=*) mode=target; pct="${1#*=}"; shift ;;
     --costs) costs_file="$2"; shift 2 ;;
     --costs=*) costs_file="${1#*=}"; shift ;;
     --json) json=1; shift ;;
-    # Print the usage block from the header comment above (lines 2–52).
-    -h|--help) sed -n '2,52p' "$0"; exit 0 ;;
+    # Print the usage block from the header comment above (the header).
+    -h|--help) awk 'NR>1 && !/^#/ {exit} NR>1' "$0"; exit 0 ;;
     # Anything else is a role request, kept in the order given.
     *) requests+=("$1"); shift ;;
   esac
@@ -167,14 +189,33 @@ fi
 # Android emulators run as qemu-system-* or emulator64-*; count them on any OS.
 emulators=$(pgrep -f 'qemu-system|emulator64' 2>/dev/null | wc -l | tr -d ' ' || true)
 
-# Budget = what we may still add before reaching the target:
-#   cpu_budget = cores x target% - current load        (in cores)
-#   ram_budget = total RAM x target% - RAM in use      (in GB)
-# Either can be negative, meaning we are already over the target.
+# Budget = how much the requested agents may use, in cores and GB.
+#
+#   share mode (default):
+#     free_cpu   = cores - load, floored at 0 (load can exceed the core count
+#                  when the machine is overloaded; then nothing is free)
+#     free_ram   = total RAM - RAM in use
+#     cpu_budget = free_cpu x pct%
+#     ram_budget = free_ram x pct%
+#     Never negative: on a busy machine it just becomes small.
+#
+#   target mode:
+#     cpu_budget = cores x pct% - load
+#     ram_budget = total RAM x pct% - RAM in use
+#     Negative means the machine is already over the target.
+#
 # (A heredoc feeds awk's output to `read` so both values land in this shell.)
 read -r cpu_budget ram_budget <<EOF
-$(awk -v c="$cores" -v l="$load1" -v t="$ram_total_gb" -v u="$ram_used_gb" -v p="$target" \
-  'BEGIN {printf "%.2f %.2f", c*p/100 - l, t*p/100 - u}')
+$(awk -v m="$mode" -v c="$cores" -v l="$load1" -v t="$ram_total_gb" -v u="$ram_used_gb" -v p="$pct" \
+  'BEGIN {
+     if (m == "share") {
+       fc = c - l; if (fc < 0) fc = 0
+       fr = t - u; if (fr < 0) fr = 0
+       printf "%.2f %.2f", fc*p/100, fr*p/100
+     } else {
+       printf "%.2f %.2f", c*p/100 - l, t*p/100 - u
+     }
+   }')
 EOF
 
 # ---------------------------------------------------------------------------
@@ -223,8 +264,10 @@ done
 # Current usage as whole percentages, for the summary line.
 cpu_pct=$(awk -v l="$load1" -v c="$cores" 'BEGIN {printf "%.0f", 100*l/c}')
 ram_pct=$(awk -v u="$ram_used_gb" -v t="$ram_total_gb" 'BEGIN {printf "%.0f", 100*u/t}')
-# over=1 when either budget is negative, i.e. the machine is already past the
-# target before we launch anything. (awk's exit status is the test here.)
+# over=1 when either budget is negative, i.e. (target mode) the machine is
+# already past the target before we launch anything. Share-mode budgets are
+# never negative, so this only fires in target mode. (awk's exit status is
+# the test here.)
 over=0
 awk -v a="$cpu_budget" -v b="$ram_budget" 'BEGIN {exit !(a<0 || b<0)}' && over=1
 
@@ -234,8 +277,8 @@ join() { local IFS=,; echo "$*"; }
 if [ "$json" = 1 ]; then
   # q A B -> ["A","B"]; role names are plain words, so no escaping is needed.
   q() { local out="" x; for x in "$@"; do out="$out\"$x\","; done; echo "[${out%,}]"; }
-  printf '{"target_pct":%s,"cores":%s,"load1":%s,"cpu_pct":%s,"ram_total_gb":%s,"ram_used_gb":%s,"ram_pct":%s,"simulators_booted":%s,"emulators":%s,"cpu_budget_cores":%s,"ram_budget_gb":%s,"over_target":%s,"launch":%s,"queue":%s,"unknown_roles":%s}\n' \
-    "$target" "$cores" "$load1" "$cpu_pct" "$ram_total_gb" "$ram_used_gb" "$ram_pct" "$sims" "$emulators" \
+  printf '{"mode":"%s","pct":%s,"cores":%s,"load1":%s,"cpu_pct":%s,"ram_total_gb":%s,"ram_used_gb":%s,"ram_pct":%s,"simulators_booted":%s,"emulators":%s,"cpu_budget_cores":%s,"ram_budget_gb":%s,"over_target":%s,"launch":%s,"queue":%s,"unknown_roles":%s}\n' \
+    "$mode" "$pct" "$cores" "$load1" "$cpu_pct" "$ram_total_gb" "$ram_used_gb" "$ram_pct" "$sims" "$emulators" \
     "$cpu_budget" "$ram_budget" "$([ $over = 1 ] && echo true || echo false)" \
     "$(q "${admitted[@]+"${admitted[@]}"}")" "$(q "${queued[@]+"${queued[@]}"}")" "$(q "${unknown[@]+"${unknown[@]}"}")"
   exit 0
@@ -244,8 +287,12 @@ fi
 # Human summary.
 echo "Machine:  $cores cores, $ram_total_gb GB RAM"
 echo "Now:      CPU ${cpu_pct}% (load $load1), RAM ${ram_pct}% ($ram_used_gb GB), simulators booted: $sims, emulators: $emulators"
-echo "Budget:   to ${target}%: $cpu_budget cores, $ram_budget GB"
-[ "$over" = 1 ] && echo "WARNING:  already over the ${target}% target; launch nothing heavy until it drops"
+if [ "$mode" = share ]; then
+  echo "Budget:   ${pct}% of free: $cpu_budget cores, $ram_budget GB"
+else
+  echo "Budget:   to ${pct}% of the machine: $cpu_budget cores, $ram_budget GB"
+fi
+[ "$over" = 1 ] && echo "WARNING:  already over the ${pct}% target; launch nothing heavy until it drops"
 # With no roles requested, the script is just a "how busy is the machine" check.
 [ ${#requests[@]} -gt 0 ] || exit 0
 echo "Launch:   $( [ ${#admitted[@]} -gt 0 ] && join "${admitted[@]}" || echo none)"

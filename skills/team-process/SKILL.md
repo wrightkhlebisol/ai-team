@@ -110,7 +110,8 @@ Each project using this team declares, in its root `CLAUDE.md` under a
 - Design system: where it lives (README first), if the project has UI
 - Test environment: how features are tested locally (emulators, local
   servers, seeded data), and on which ports
-- Resource budget (optional): the target share of CPU/RAM (default 50%),
+- Resource budget (optional): the share of free CPU/RAM agents may use
+  (default 50%) or an absolute target for the whole machine,
   a costs file for `capacity.sh` with measured profiles for this project,
   the test-runner worker cap, the number of `heavy.sh` slots, and the most
   simulators/emulators at once
@@ -206,14 +207,19 @@ as many as the resource budget admits (see Resource budget).
 Parallel agents share one machine. What costs resources is not the agent
 (it runs inside the Claude Code process) but what it runs: test suites,
 builds, dev servers, simulators and emulators. Too many at once can freeze or
-crash the machine and lose every agent's work. Keep the machine at or below
-the project's target (default **50%** of CPU and RAM).
+crash the machine and lose every agent's work. By default the agents get
+**50% of the CPU and RAM that is free** when they launch, so whatever the
+user already has open never counts against them and the rest stays free for
+the user. A project can instead set an absolute target (the whole machine at
+most N% busy).
 
 Two scripts in this skill's `scripts/` folder do the work:
 
-- `capacity.sh [--target PCT] [--costs FILE] ROLE[=N] ...` measures CPU
-  load, RAM in use and booted simulators, subtracts that from the target,
-  and admits the requested roles in the order given, by their cost profile
+- `capacity.sh [--share PCT | --target PCT] [--costs FILE] ROLE[=N] ...`
+  measures CPU load, RAM in use and booted simulators, works out the budget
+  (`--share`, the default at 50: that share of what is free; `--target`:
+  up to that share of the whole machine), and admits the requested roles in
+  the order given, by their cost profile
   (expected peak RAM and cores of what that role runs). It prints what to
   launch now and what to queue. Profiles: `pm`, `product-designer`,
   `code-reviewer`, `software-engineer`, `engineer-native` (native/mobile
@@ -227,11 +233,13 @@ Two scripts in this skill's `scripts/` folder do the work:
 Before every launch of one or more subagents (a wave, a retry, a refill):
 
 1. Run `capacity.sh` with the roles you want to launch, most important first
-   (blocking fixes before new work, builds before reviews). Use the target
-   and costs file from the Workspace config, if any
+   (blocking fixes before new work, builds before reviews). Use the share
+   or target and the costs file from the Workspace config, if any
 2. Launch only what it admits. Keep the rest in a queue, and as each agent
    finishes, run `capacity.sh` again and launch the next from the queue.
-   If it reports the machine already over target, launch nothing that runs
+   Don't re-measure right after a launch: new agents haven't started their
+   heavy commands yet, so the machine looks freer than it is. If it reports
+   the machine already over target (`--target` mode), launch nothing that runs
    heavy commands; light roles (`pm`, `code-reviewer`) may still go if they fit
 3. Free what you no longer need before measuring: shut down simulators and
    emulators no agent is using, stop dev servers of finished issues

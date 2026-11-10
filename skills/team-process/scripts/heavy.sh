@@ -60,7 +60,7 @@ while [ $# -gt 0 ]; do
     --name) name="$2"; shift 2 ;;
     --timeout) timeout="$2"; shift 2 ;;
     --) shift; break ;;                       # the command starts after --
-    -h|--help) sed -n '2,46p' "$0"; exit 0 ;; # print the header comment
+    -h|--help) awk 'NR>1 && !/^#/ {exit} NR>1' "$0"; exit 0 ;; # print the header comment
     *) break ;;                               # no --: treat the rest as the command
   esac
 done
