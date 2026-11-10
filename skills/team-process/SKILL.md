@@ -110,6 +110,11 @@ Each project using this team declares, in its root `CLAUDE.md` under a
 - Design system: where it lives (README first), if the project has UI
 - Test environment: how features are tested locally (emulators, local
   servers, seeded data), and on which ports
+- Resource budget (optional): the share of free CPU/RAM agents may use
+  (default 50%) or an absolute target for the whole machine,
+  a costs file for `capacity.sh` with measured profiles for this project,
+  the test-runner worker cap, the number of `heavy.sh` slots, and the most
+  simulators/emulators at once
 
 Missing config → defaults: the current repo, base `origin/dev` if it exists
 else `origin/main`, worktree root `.worktrees/`, tracker = the current repo.
@@ -165,7 +170,8 @@ Subagents never pick, create or switch workspaces themselves.
 ## Pipelining
 
 The orchestrator keeps work moving instead of waiting on one subagent at a
-time. Subagents run in the background; launch independent ones together.
+time. Subagents run in the background; launch independent ones together,
+as many as the resource budget admits (see Resource budget).
 
 - **Groom ahead.** Grooming changes no code. While an issue is being built,
   groom the upcoming ones in parallel (one PM subagent per few issues).
@@ -196,8 +202,66 @@ time. Subagents run in the background; launch independent ones together.
 - **Checkpoints don't block others.** While one issue waits for the user at
   a checkpoint, keep the other in-flight issues moving
 
+## Resource budget
+
+Parallel agents share one machine. What costs resources is not the agent
+(it runs inside the Claude Code process) but what it runs: test suites,
+builds, dev servers, simulators and emulators. Too many at once can freeze or
+crash the machine and lose every agent's work. By default the agents get
+**50% of the CPU and RAM that is free** when they launch, so whatever the
+user already has open never counts against them and the rest stays free for
+the user. A project can instead set an absolute target (the whole machine at
+most N% busy).
+
+Two scripts in this skill's `scripts/` folder do the work:
+
+- `capacity.sh [--share PCT | --target PCT] [--costs FILE] ROLE[=N] ...`
+  measures CPU load, RAM in use and booted simulators, works out the budget
+  (`--share`, the default at 50: that share of what is free; `--target`:
+  up to that share of the whole machine), and admits the requested roles in
+  the order given, by their cost profile
+  (expected peak RAM and cores of what that role runs). It prints what to
+  launch now and what to queue. Profiles: `pm`, `product-designer`,
+  `code-reviewer`, `software-engineer`, `engineer-native` (native/mobile
+  builds), `qa-engineer`, `qa-sim` (QA driving a simulator or emulator),
+  `simulator`. Projects override or add profiles in a costs file
+- `heavy.sh [--slots N] [--name POOL] -- CMD ...` runs a heavy command only
+  when a machine-wide slot is free (default 1 slot), so agents queue for the
+  full test suite or a native build instead of running them all at once.
+  Slots held by a dead process are reclaimed
+
+Before every launch of one or more subagents (a wave, a retry, a refill):
+
+1. Run `capacity.sh` with the roles you want to launch, most important first
+   (blocking fixes before new work, builds before reviews). Use the share
+   or target and the costs file from the Workspace config, if any
+2. Launch only what it admits. Keep the rest in a queue, and as each agent
+   finishes, run `capacity.sh` again and launch the next from the queue.
+   Don't re-measure right after a launch: new agents haven't started their
+   heavy commands yet, so the machine looks freer than it is. If it reports
+   the machine already over target (`--target` mode), launch nothing that runs
+   heavy commands; light roles (`pm`, `code-reviewer`) may still go if they fit
+3. Free what you no longer need before measuring: shut down simulators and
+   emulators no agent is using, stop dev servers of finished issues
+
+Every subagent prompt that runs commands includes the limits it must keep:
+
+- the absolute path to `heavy.sh`, and that full test suites, type checks of
+  the whole repo, native builds and UI-test runs go through it
+  (`--name build` for native builds)
+- the cap on test-runner workers (e.g. Jest `--maxWorkers=2`, pytest
+  `-n 2`), or the project's value
+- the one simulator/emulator it may use (by id) and, if it boots one, to
+  shut it down before handing back. Never more than the number of `qa-sim`
+  agents admitted
+- that one agent runs the repo-wide checks for a parallel QA pass and the
+  others cite its results, run only their own test files, and rerun a
+  timed-out test alone before calling it a failure
+
 ## Rules
 
+- Keep within the resource budget (see Resource budget): measure before
+  launching, queue what doesn't fit
 - Don't wait idle. While a subagent works, launch the next independent
   step (see Pipelining). Several issues may be in flight in one session;
   each build runs in its own worktree, and no two in-flight builds edit
