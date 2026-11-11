@@ -250,7 +250,9 @@ Every subagent prompt that runs commands includes the limits it must keep:
   the whole repo, native builds and UI-test runs go through it
   (`--name build` for native builds)
 - the cap on test-runner workers (e.g. Jest `--maxWorkers=2`, pytest
-  `-n 2`), or the project's value
+  `-n 2`), or the project's value, and on native build jobs
+  (`xcodebuild -jobs 4`, Gradle `--max-workers=4`). The slot lock stops two
+  builds running at once, but an uncapped build still uses every core
 - the one simulator/emulator it may use (by id) and, if it boots one, to
   shut it down before handing back. Never more than the number of `qa-sim`
   agents admitted
