@@ -19,6 +19,9 @@ Entry points:
 - `/ai-team:work-backlog [--auto]`: run open issues in waves, pipelined
   (see Pipelining)
 - `/ai-team:plan-project`: PO session to shape scope and file issues
+- `/ai-team:plan-go-to-market`: business case and 12-month marketing plan
+  for a product (business-developer, then product-marketer). Not part of
+  the code loop: it writes documents under `docs/business/`, not code
 
 Any request that will change code beyond a trivial fix (typo, one-line
 config, a change the user dictates exactly) goes through this loop, even when
@@ -36,6 +39,8 @@ process", "just do it").
 | Engineer | `ai-team:software-engineer` subagent | yes |
 | QA | `ai-team:qa-engineer` subagent | no |
 | Reviewer | `ai-team:code-reviewer` subagent | no |
+| Business developer | `ai-team:business-developer` subagent (go-to-market only) | no (business docs only) |
+| Product marketer | `ai-team:product-marketer` subagent (go-to-market only) | no (marketing docs only) |
 
 Each role's rules live in its agent definition. Project-specific rules for a
 role go in the project's "Agent team notes" (see Workspace config).
@@ -145,13 +150,18 @@ Each project using this team declares, in its root `CLAUDE.md` under a
   the test-runner worker cap, the number of `heavy.sh` slots, and the most
   simulators/emulators at once
 
+For the go-to-market roles, the same `CLAUDE.md` can hold a "Business
+context" section: company stage, budget, team and hours available,
+existing channels and accounts (and who runs them), markets, currency, brand
+voice. Missing → a bootstrapped company with little to no budget, USD.
+
 Missing config → defaults: the current repo, base `origin/dev` if it exists
 else `origin/main`, worktree root `.worktrees/`, tracker = the current repo.
 
 Optionally, an "Agent team notes" section in the same `CLAUDE.md` adds
 project rules per role, as a `### <role>` heading each (`pm`,
 `product-designer`, `software-engineer`, `qa-engineer`, `code-reviewer`,
-`orchestrator`): the checks a reviewer must make, where the screens live,
+`business-developer`, `product-marketer`, `orchestrator`): the checks a reviewer must make, where the screens live,
 domain conventions. Every agent reads its entry first; notes win over the
 generic rules where they disagree.
 

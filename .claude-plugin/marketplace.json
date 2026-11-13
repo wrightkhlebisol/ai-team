@@ -5,7 +5,7 @@
     {
       "name": "ai-team",
       "source": "./",
-      "description": "PM, designer, engineer, QA and reviewer subagents plus the orchestrator loop and commands."
+      "description": "PM, designer, engineer, QA, reviewer, business developer and product marketer subagents plus the orchestrator loop and commands."
     }
   ]
 }

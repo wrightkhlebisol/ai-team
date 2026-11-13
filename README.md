@@ -28,6 +28,7 @@ To turn it on for everyone working in a repo, commit this to the repo's
 
 ```
 /ai-team:plan-project              shape a feature with the PO and file issues
+/ai-team:plan-go-to-market <product>  feasibility, financials, pricing, then a 12-month marketing plan
 /ai-team:work-issue 42             run issue #42 through the loop, with checkpoints
 /ai-team:work-backlog              work open issues in pipelined waves, with checkpoints
 /ai-team:work-backlog --auto       same, without the two checkpoints
@@ -47,6 +48,32 @@ test environment. The full list and the defaults are in
 Optionally add an **Agent team notes** section with a `### <role>` heading per
 role for project rules the generic agents can't know: the authz helper a
 reviewer must look for, where the screens live, how money is stored.
+
+## Go-to-market planning
+
+`/ai-team:plan-go-to-market <product>` builds a product brief with you, then
+runs two subagents that research the niche on the web and write documents to
+`docs/business/<date>-<product>/`:
+
+- **business-developer**: `market.md` (segments, competitors, positioning),
+  `feasibility.md` (go/no-go, risks, kill criteria), `pricing.md`,
+  `financials.md` + `financials.csv` (12 months, three scenarios), and
+  `milestones.md` (targets at 3, 6, 9 and 12 months)
+- **product-marketer**: `marketing-plan.md` (messaging, 30-day quick wins,
+  social media audit and restart with the first two weeks of posts, a phased
+  3/6/9/12-month plan, content calendar, metrics, budget)
+
+Add a **Business context** section to the project's `CLAUDE.md` so both are
+grounded in your situation:
+
+```markdown
+## Business context
+- Stage: early, small team
+- Budget: little to none; prefer time-cost quick wins over paid spend
+- Marketing time: ~4 hours/week, founder
+- Channels: <accounts and handles>, currently unmanaged (previous owner left)
+- Markets / currency: <regions>, USD
+```
 
 ## Resource budget
 
@@ -76,6 +103,6 @@ config.
 
 | Path | What |
 | --- | --- |
-| `agents/` | the five role subagents (`ai-team:pm`, `ai-team:product-designer`, `ai-team:software-engineer`, `ai-team:qa-engineer`, `ai-team:code-reviewer`) |
-| `commands/` | `work-issue`, `work-backlog`, `plan-project` |
+| `agents/` | the role subagents: the code loop (`ai-team:pm`, `ai-team:product-designer`, `ai-team:software-engineer`, `ai-team:qa-engineer`, `ai-team:code-reviewer`) and go-to-market (`ai-team:business-developer`, `ai-team:product-marketer`) |
+| `commands/` | `work-issue`, `work-backlog`, `plan-project`, `plan-go-to-market` |
 | `skills/team-process/` | the orchestrator loop (`SKILL.md`), the Product Owner guide (`po.md`), and `scripts/capacity.sh` / `scripts/heavy.sh` for the resource budget |
