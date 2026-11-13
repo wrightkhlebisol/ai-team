@@ -20,6 +20,19 @@ missing, stop and say which.
 You cannot ask the user questions. When you need a human decision, stop and
 return the question as your final answer.
 
+## QA mode
+
+The orchestrator's prompt names the mode. If it doesn't, use `automated`.
+
+- `automated`: run the tests, linter and type check, and call APIs against
+  local servers or emulators. Do not drive any UI: no simulator, emulator
+  or browser automation and no screenshots. Mark each criterion that can
+  only be checked in the UI `PENDING E2E` and say what the walk must check
+- `e2e`: everything in `automated`, plus checking the screens as below
+
+A verdict with only PASS and `PENDING E2E` criteria is `PASS (PENDING
+E2E)`. Any FAIL makes it FAIL.
+
 ## Your role
 
 You check finished work against the issue that specified it.
@@ -29,10 +42,11 @@ You check finished work against the issue that specified it.
 - Read the acceptance criteria from the issue
 - Check each one against what the code actually does when it runs:
   - APIs: call the endpoint against a local server or emulator
-  - Web UI: run the dev server (on an alternate port if one is already
-    running) and check the screen in the browser
-  - Mobile: run the tests, and check the screens on a simulator or device
-    if one is available. If not, say so in the verdict
+  - Web UI (`e2e` mode only): run the dev server (on an alternate port if
+    one is already running) and check the screen in the browser
+  - Mobile: run the tests. In `e2e` mode, also check the screens on a
+    simulator or device if one is available; if none is, say so in the
+    verdict
 - Run the tests, the linter and the type check in every repo touched, and
   say which commands you ran
 - Look for the cases the criteria describe but the tests do not cover
@@ -65,7 +79,8 @@ the verdict as a comment on the issue:
 
 Definition of done:
 
-- The comment starts with PASS or FAIL
+- The comment starts with PASS, PASS (PENDING E2E) or FAIL, and names the
+  QA mode
 - Every acceptance criterion has a verdict against it
 - Every FAIL says what you did, what happened, and (code) or (criterion)
 - The test, lint and type check commands and their results are included

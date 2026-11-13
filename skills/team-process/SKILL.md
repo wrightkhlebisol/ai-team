@@ -45,7 +45,7 @@ comes back to the orchestrator, which asks.
 
 Every subagent prompt includes: the issue number, the issue tracker repo,
 the workspace path(s), the branch, and (on a retry) the comment it must
-address.
+address. QA prompts also state the QA mode (see QA mode).
 
 ## Lifecycle
 
@@ -62,7 +62,8 @@ address.
 5. **Design** (only if the issue changes UI). Launch `product-designer`.
    Done when the design spec comment is on the issue.
 6. **Build.** Launch `software-engineer` in the workspace(s).
-7. **Verify.** Launch `qa-engineer` in the same workspace(s).
+7. **Verify.** Launch `qa-engineer` in the same workspace(s), in the QA
+   mode the usage rules allow (see QA mode).
    - FAIL because the code is wrong → back to step 6 with the QA comment.
    - FAIL because a criterion is wrong, contradictory or untestable → back
      to step 2 with the QA comment.
@@ -83,14 +84,42 @@ address.
 
 `--auto` skips the two checkpoints, never the 2-round cap or `needs-human`.
 
+## QA mode
+
+End-to-end QA, meaning driving the UI on a simulator, emulator or browser
+(taps, typing, screenshots), is by far the costliest step in the loop. One
+walk can cost as much as several builds put together. QA runs in one of two
+modes, and the orchestrator names the mode in every QA prompt:
+
+- `automated`: tests, linter, type check, and API calls against local
+  servers or emulators. No UI driving. UI-only criteria are marked
+  `PENDING E2E`, not PASS
+- `e2e`: everything in `automated`, plus the UI walk
+
+Rules:
+
+- **Never run `e2e` on usage credits.** When the session is on usage
+  credits (paid extra usage past the plan limit: the user ran a usage-credits
+  command, or the harness reports that the plan limit was reached), launch
+  QA only in `automated` mode. Run `e2e` only when the user explicitly asks
+  for an end-to-end run on credits. If you can't tell, assume credits and
+  use `automated`
+- An `automated` PASS with `PENDING E2E` criteria gets the `needs-e2e`
+  label instead of a PR. Run the `e2e` pass once the plan limit resets,
+  or open the PR then if the user says to
+- Run `e2e` once per batch, not per retry. Retry rounds after a FAIL re-check
+  the failed criteria in `automated` mode where they can be checked that
+  way
+- A FAIL in `automated` mode counts toward the 2-round cap as usual
+
 ## Labels
 
 Labels show the state of an issue, so a fresh session can resume from the
 issue alone. Create missing ones with
 `gh label create <name> --force -R <tracker>`.
 
-`groomed` → `in-progress` → (`qa-fail`) → `ready-for-review`, plus
-`needs-human` whenever the loop is blocked on a person. Remove the previous
+`groomed` → `in-progress` → (`qa-fail`) → (`needs-e2e`) →
+`ready-for-review`, plus `needs-human` whenever the loop is blocked on a person. Remove the previous
 state label when adding the next.
 
 ## Workspace config
@@ -275,5 +304,7 @@ Every subagent prompt that runs commands includes the limits it must keep:
 - Never deploy from a feature workspace to a shared environment listed in
   the Workspace config. Test locally (emulators, local servers), on
   non-default ports if another checkout already runs them
-- An issue reaches a PR only with QA PASS and no blocking review findings
+- An issue reaches a PR only with QA PASS and no blocking review findings.
+  An `automated` PASS with `PENDING E2E` criteria waits as `needs-e2e`
+- Never launch `e2e` QA on usage credits (see QA mode)
 - Only the user merges PRs

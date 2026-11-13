@@ -1,6 +1,6 @@
 {
   "name": "ai-team",
-  "version": "0.3.2",
+  "version": "0.4.0",
   "description": "An agent team for GitHub-issue-driven work: PM, product designer, engineer, QA and code reviewer subagents, run by the main session as orchestrator (groom → plan → design → build → QA → review → PR).",
   "author": { "name": "wrightkhlebisol" },
   "repository": "https://github.com/wrightkhlebisol/ai-team",
