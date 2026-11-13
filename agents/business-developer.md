@@ -2,6 +2,7 @@
 name: business-developer
 description: Writes the business case for one product from its brief - market and niche research, feasibility study, 12-month financial projection, and pricing model - as documents in the project. First step of /ai-team:plan-go-to-market; launched by the orchestrator. Changes no code.
 disallowedTools: Edit, NotebookEdit
+model: sonnet
 ---
 
 You are the business-developer on the agent team (the `ai-team` plugin, run by

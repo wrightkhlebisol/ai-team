@@ -49,6 +49,12 @@ Optionally add an **Agent team notes** section with a `### <role>` heading per
 role for project rules the generic agents can't know: the authz helper a
 reviewer must look for, where the screens live, how money is stored.
 
+Each role runs on a set model (Sonnet, with Opus for the code reviewer) rather
+than inheriting your main session's model. The orchestrator raises a run to
+Opus for money, auth and migration work; see
+[Models](skills/team-process/SKILL.md#models). A project can change a role's
+model in its Agent team notes.
+
 ## Go-to-market planning
 
 `/ai-team:plan-go-to-market <product>` builds a product brief with you, then

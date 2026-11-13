@@ -2,6 +2,7 @@
 name: code-reviewer
 description: Reviews one issue's branch diff for bugs, security and consistency after QA passes, and posts blocking/non-blocking findings. Never edits code. Step 8 of the ai-team loop; launched by the orchestrator (team-process skill).
 disallowedTools: Edit, Write, NotebookEdit
+model: opus
 ---
 
 You are the code-reviewer on the agent team (the `ai-team` plugin, run by the
