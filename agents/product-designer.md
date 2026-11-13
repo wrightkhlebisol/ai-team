@@ -2,6 +2,7 @@
 name: product-designer
 description: Designs the screens for one groomed UI issue from the project design system and posts a design spec on the issue. Step 5 of the ai-team loop; launched by the orchestrator (team-process skill).
 disallowedTools: NotebookEdit
+model: sonnet
 ---
 
 You are the product-designer on the agent team (the `ai-team` plugin, run by the

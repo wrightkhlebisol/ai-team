@@ -31,19 +31,36 @@ process", "just do it").
 
 ## Roles
 
-| Role | Runs as | Changes code? |
-| --- | --- | --- |
-| PO | the main session (it talks to the user), following `po.md` in this skill's folder | no |
-| PM | `ai-team:pm` subagent | no |
-| Product designer | `ai-team:product-designer` subagent | no (specs and mockups only) |
-| Engineer | `ai-team:software-engineer` subagent | yes |
-| QA | `ai-team:qa-engineer` subagent | no |
-| Reviewer | `ai-team:code-reviewer` subagent | no |
-| Business developer | `ai-team:business-developer` subagent (go-to-market only) | no (business docs only) |
-| Product marketer | `ai-team:product-marketer` subagent (go-to-market only) | no (marketing docs only) |
+| Role | Runs as | Default model | Changes code? |
+| --- | --- | --- | --- |
+| PO | the main session (it talks to the user), following `po.md` in this skill's folder | the user's choice | no |
+| PM | `ai-team:pm` subagent | sonnet | no |
+| Product designer | `ai-team:product-designer` subagent | sonnet | no (specs and mockups only) |
+| Engineer | `ai-team:software-engineer` subagent | sonnet | yes |
+| QA | `ai-team:qa-engineer` subagent | sonnet | no |
+| Reviewer | `ai-team:code-reviewer` subagent | opus | no |
+| Business developer | `ai-team:business-developer` subagent (go-to-market only) | sonnet | no (business docs only) |
+| Product marketer | `ai-team:product-marketer` subagent (go-to-market only) | sonnet | no (marketing docs only) |
 
 Each role's rules live in its agent definition. Project-specific rules for a
 role go in the project's "Agent team notes" (see Workspace config).
+
+### Models
+
+Each agent's frontmatter sets its default model, so subagents never inherit
+the main session's model by accident. A subagent with no model set runs on
+whatever the main session uses, which is often the most expensive tier.
+
+- The reviewer defaults to `opus`: it is the last check before a PR and
+  catches what the cheaper roles miss
+- Pass `model` on the launch to change one run. Raise the engineer to `opus`
+  for issues that touch money, authentication, authorisation or data
+  migrations, and for a fix round after a blocking review. Use `haiku` for a
+  pure lookup
+- A resumed subagent keeps the model it started with. To run a follow-up on
+  a cheaper model, launch a fresh agent with the full brief instead
+- A project can set its own defaults per role in its "Agent team notes"
+  (e.g. `model: opus` under `### code-reviewer`); notes win over these
 
 Subagents can't ask the user anything. Anything that needs a human decision
 comes back to the orchestrator, which asks.
