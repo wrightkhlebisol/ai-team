@@ -27,7 +27,10 @@ The orchestrator's prompt names the mode. If it doesn't, use `automated`.
 - `automated`: run the tests, linter and type check, and call APIs against
   local servers or emulators. Do not drive any UI: no simulator, emulator
   or browser automation and no screenshots. Mark each criterion that can
-  only be checked in the UI `PENDING E2E` and say what the walk must check
+  only be checked in the UI `PENDING E2E`. For each, write the manual
+  check a person will run: numbered steps (screen, action, input) and the
+  expected result after each, in plain words. The orchestrator hands these
+  to the user as the human e2e check
 - `e2e`: everything in `automated`, plus checking the screens as below
 
 A verdict with only PASS and `PENDING E2E` criteria is `PASS (PENDING

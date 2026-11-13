@@ -110,12 +110,37 @@ Rules:
   for an end-to-end run on credits. If you can't tell, assume credits and
   use `automated`
 - An `automated` PASS with `PENDING E2E` criteria gets the `needs-e2e`
-  label instead of a PR. Run the `e2e` pass once the plan limit resets,
-  or open the PR then if the user says to
+  label instead of a PR, and goes to the human check below first
+- Run `e2e` QA only when the user declines the human check or asks for
+  an automated walk, and never on usage credits
 - Run `e2e` once per batch, not per retry. Retry rounds after a FAIL re-check
   the failed criteria in `automated` mode where they can be checked that
   way
 - A FAIL in `automated` mode counts toward the 2-round cap as usual
+
+### Human e2e check
+
+Before any automated UI walk, a person runs the end-to-end check by hand.
+It costs no usage and catches what a person sees but a script misses.
+
+1. Serve the branch from its own workspace on a non-default port (a second
+   dev server or bundler) and open it on the user's simulator, emulator or
+   browser. Never switch, detach or stash the user's main checkout to do it
+2. Post a check script as an issue comment, and show it to the user:
+   - **Setup**: how the branch is served and how to open it, the test
+     account and data to use, and how to switch back afterwards
+   - **Steps**: numbered, one action each, in the user's words (the
+     screen, the button, the input), with the **expected result** after
+     each. Build them from QA's `PENDING E2E` list; every pending
+     criterion is covered by at least one step
+   - **What to report**: pass/fail per step; for a fail, a screenshot or
+     one line on what they saw
+3. Keep `needs-e2e` while the user checks. Keep other work moving
+4. All steps pass → record it on the issue ("Human e2e check: PASS, steps
+   1–n") and continue to review / PR. A failed step → back to step 6 with
+   the user's report as the QA comment; it counts toward the 2-round cap.
+   Retest only the failed steps by hand
+5. Stop the extra server when the check is done
 
 ## Labels
 
@@ -316,5 +341,6 @@ Every subagent prompt that runs commands includes the limits it must keep:
   non-default ports if another checkout already runs them
 - An issue reaches a PR only with QA PASS and no blocking review findings.
   An `automated` PASS with `PENDING E2E` criteria waits as `needs-e2e`
+  until the human e2e check passes (see QA mode)
 - Never launch `e2e` QA on usage credits (see QA mode)
 - Only the user merges PRs
