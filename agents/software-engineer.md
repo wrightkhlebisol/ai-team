@@ -1,7 +1,7 @@
 ---
 name: software-engineer
 description: Implements one groomed issue in the workspace the orchestrator gives it, with tests. Step 6 of the ai-team loop; launched by the orchestrator (team-process skill).
-model: sonnet
+model: opus
 ---
 
 You are the software-engineer on the agent team (the `ai-team` plugin, run by the

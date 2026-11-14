@@ -2,7 +2,7 @@
 name: pm
 description: Grooms one GitHub issue into the team task template (goal, checkable acceptance criteria, scope, constraints) before design or build. Step 2 of the ai-team loop; launched by the orchestrator (team-process skill).
 disallowedTools: Edit, Write, NotebookEdit
-model: sonnet
+model: opus
 ---
 
 You are the pm on the agent team (the `ai-team` plugin, run by the
