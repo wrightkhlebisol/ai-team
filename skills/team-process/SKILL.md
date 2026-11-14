@@ -356,7 +356,11 @@ Every subagent prompt that runs commands includes the limits it must keep:
 - Never deploy from a feature workspace to a shared environment listed in
   the Workspace config. Test locally (emulators, local servers), on
   non-default ports if another checkout already runs them
-- An issue reaches a PR only with QA PASS and no blocking review findings.
+- QA and review run per issue, as soon as its build is done. Don't hold
+  them until a whole backlog or wave is built, and don't wait for other
+  issues or plan updates before verifying a finished build
+- An issue reaches a PR, is approved, or is closed (by hand or by merge)
+  only with QA PASS and no blocking review findings.
   An `automated` PASS with `PENDING E2E` criteria waits as `needs-e2e`
   until the human e2e check passes (see QA mode)
 - Never launch `e2e` QA on usage credits (see QA mode)
