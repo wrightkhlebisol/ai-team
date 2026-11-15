@@ -114,10 +114,18 @@ QA prompt:
 - `automated`: tests, linter, type check, and API calls against local
   servers or emulators. No UI driving. UI-only criteria are marked
   `PENDING E2E`, not PASS
-- `e2e`: everything in `automated`, plus the UI walk: driving the screens
-  on a simulator, emulator or browser (taps, typing, screenshots)
+- `e2e`: everything in `automated`, plus the UI walk: driving the real app
+  on a simulator, emulator or browser and checking what each screen shows
 
 Rules:
+
+- **Walk headless by default.** QA drives the app from the command line,
+  on its own simulator, emulator or browser instance, without taking over
+  the user's screen, mouse or keyboard (see "Headless walk" below). Use
+  screen control (computer use, GUI scripting) only for a criterion that
+  depends on real touch or pointer input, and only when no other session
+  holds the screen. Never wait on a screen-control lock when the headless
+  walk can do the step
 
 - **The UI walk is QA's job, not the user's.** An issue with criteria that
   can only be checked in the UI gets `e2e` QA. Never ask the user to check
@@ -141,6 +149,42 @@ Rules:
   "Agent team notes"). Then QA runs `automated`, issues with UI-only
   criteria wait as `needs-e2e`, and the walks run once the user turns them
   back on
+
+### Headless walk
+
+Screen control gives one session the cursor: a second session's walk waits
+for it, and every action costs a screenshot. A headless walk needs neither,
+so walks in different sessions can run at the same time.
+
+- **Own instance.** QA uses a simulator, emulator or browser instance of
+  its own, booted from the command line with no window, and a dev server
+  or bundler from the issue's workspace on a non-default port. It never
+  touches an instance or server another session started, and removes its
+  own when done
+- **Read the screen as data.** QA reads what the running app renders
+  (web: the DOM or accessibility tree through a headless browser such as
+  Playwright; mobile: the rendered component tree through the app's
+  debugger or inspector, or the platform's UI-hierarchy dump) and checks
+  the text, labels and current route against the criteria
+- **Act through the same channel.** Press, type and navigate from code
+  (browser automation calls; on mobile, the element's own press and text
+  handlers, deep links and the platform's device commands)
+- **Screenshots as evidence, not as eyes.** One command-line screenshot per
+  step, and QA looks at each: a tree that reads right on a blank or
+  crashed screen is a FAIL
+- **Keep the driver.** The script that connects and drives the app lives in
+  the project (the "Agent team notes" say where). QA reuses it and never
+  rewrites it per issue; an engineer fixes it when the app outgrows it
+- **Say what it can't see.** A headless walk does not catch real-touch
+  problems (a button under another element, gestures, the on-screen
+  keyboard). When a criterion depends on those, the verdict says so and
+  that step is done with screen control, or stays `PENDING E2E`
+- The verdict names the method ("headless walk")
+
+A project records its own recipe (how to boot an instance, load the
+branch, connect the driver, sign in a test account) in its "Agent team
+notes" under `qa-engineer`. The orchestrator passes the instance, the port
+and the driver path in the QA prompt.
 
 ### Human check (only on request)
 

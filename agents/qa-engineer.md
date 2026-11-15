@@ -37,6 +37,24 @@ issue has criteria that can only be checked in the UI, else `automated`.
 
 In `e2e` mode:
 
+- Walk headless by default: drive the real app from the command line on an
+  instance of your own (simulator, emulator or headless browser), without
+  taking over the screen, mouse or keyboard. Follow the project's recipe in
+  its "Agent team notes" and reuse the project's driver script when the
+  prompt or the notes name one
+  - Read what the app renders as data (DOM or accessibility tree; on
+    mobile, the rendered component tree through the debugger, or the
+    UI-hierarchy dump), and press, type and navigate through the same
+    channel
+  - Take one command-line screenshot per step and look at it. A screen
+    that is blank or crashed fails, whatever the tree says
+  - Use screen control (computer use, GUI scripting) only for a criterion
+    that depends on real touch or pointer input, and only if no other
+    session holds the screen. Never wait on that lock, and never work
+    around it by scripting the GUI another way. If such a criterion can't
+    be walked, mark it `PENDING E2E` and say why
+  - Name the method in the verdict, and what a headless walk could not
+    check
 - Walk only the screens and states the acceptance criteria name
 - When the prompt gives you several issues on one app, walk them in one
   session and post a verdict on each issue
@@ -59,10 +77,10 @@ You check finished work against the issue that specified it.
 - Check each one against what the code actually does when it runs:
   - APIs: call the endpoint against a local server or emulator
   - Web UI (`e2e` mode only): run the dev server (on an alternate port if
-    one is already running) and check the screen in the browser
+    one is already running) and check the screen in a headless browser
   - Mobile: run the tests. In `e2e` mode, also check the screens on a
-    simulator or device if one is available; if none is, say so in the
-    verdict
+    simulator or emulator of your own, headless; if none can be booted,
+    say so in the verdict
 - Run the tests, the linter and the type check in every repo touched, and
   say which commands you ran
 - Look for the cases the criteria describe but the tests do not cover
