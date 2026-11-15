@@ -84,8 +84,8 @@ address. QA prompts also state the QA mode (see QA mode).
 5. **Design** (only if the issue changes UI). Launch `product-designer`.
    Done when the design spec comment is on the issue.
 6. **Build.** Launch `software-engineer` in the workspace(s).
-7. **Verify.** Launch `qa-engineer` in the same workspace(s), in the QA
-   mode the usage rules allow (see QA mode).
+7. **Verify.** Launch `qa-engineer` in the same workspace(s): `e2e` mode
+   when the issue has UI-only criteria, else `automated` (see QA mode).
    - FAIL because the code is wrong → back to step 6 with the QA comment.
    - FAIL because a criterion is wrong, contradictory or untestable → back
      to step 2 with the QA comment.
@@ -108,56 +108,99 @@ address. QA prompts also state the QA mode (see QA mode).
 
 ## QA mode
 
-End-to-end QA, meaning driving the UI on a simulator, emulator or browser
-(taps, typing, screenshots), is by far the costliest step in the loop. One
-walk can cost as much as several builds put together. QA runs in one of two
-modes, and the orchestrator names the mode in every QA prompt:
+QA runs in one of two modes, and the orchestrator names the mode in every
+QA prompt:
 
 - `automated`: tests, linter, type check, and API calls against local
   servers or emulators. No UI driving. UI-only criteria are marked
   `PENDING E2E`, not PASS
-- `e2e`: everything in `automated`, plus the UI walk
+- `e2e`: everything in `automated`, plus the UI walk: driving the real app
+  on a simulator, emulator or browser and checking what each screen shows
 
 Rules:
 
-- **Never run `e2e` on usage credits.** When the session is on usage
-  credits (paid extra usage past the plan limit: the user ran a usage-credits
-  command, or the harness reports that the plan limit was reached), launch
-  QA only in `automated` mode. Run `e2e` only when the user explicitly asks
-  for an end-to-end run on credits. If you can't tell, assume credits and
-  use `automated`
-- An `automated` PASS with `PENDING E2E` criteria gets the `needs-e2e`
-  label instead of a PR, and goes to the human check below first
-- Run `e2e` QA only when the user declines the human check or asks for
-  an automated walk, and never on usage credits
-- Run `e2e` once per batch, not per retry. Retry rounds after a FAIL re-check
-  the failed criteria in `automated` mode where they can be checked that
-  way
-- A FAIL in `automated` mode counts toward the 2-round cap as usual
+- **Walk headless by default.** QA drives the app from the command line,
+  on its own simulator, emulator or browser instance, without taking over
+  the user's screen, mouse or keyboard (see "Headless walk" below). Use
+  screen control (computer use, GUI scripting) only for a criterion that
+  depends on real touch or pointer input, and only when no other session
+  holds the screen. Never wait on a screen-control lock when the headless
+  walk can do the step
 
-### Human e2e check
+- **The UI walk is QA's job, not the user's.** An issue with criteria that
+  can only be checked in the UI gets `e2e` QA. Never ask the user to check
+  screens by hand as a step of the loop, and never hold a PR for a hand
+  check
+- An issue with no UI-only criteria gets `automated` QA
+- The walk is the costliest step in the loop, so keep it small:
+  - Walk only the screens and states the acceptance criteria name
+  - One walk per issue. Retry rounds after a FAIL re-check the failed
+    criteria only, in `automated` mode where they can be checked that way
+  - Issues that share an app and a branch (or are already merged to the
+    same base) are walked together by one QA run, with a verdict per issue
+  - Walks that share a simulator, emulator or browser profile run one at a
+    time. Builds and `automated` QA for other issues keep moving meanwhile
+- A FAIL in either mode counts toward the 2-round cap as usual
+- If the walk can't run (no simulator or browser available, or the app
+  won't build for a reason outside the issue), QA returns `PASS (PENDING
+  E2E)`. Fix the environment and re-run the walk. Label `needs-e2e` and
+  tell the user only when it can't be fixed from the session
+- The user can turn walks off ("no e2e for now", or a line in the project's
+  "Agent team notes"). Then QA runs `automated`, issues with UI-only
+  criteria wait as `needs-e2e`, and the walks run once the user turns them
+  back on
 
-Before any automated UI walk, a person runs the end-to-end check by hand.
-It costs no usage and catches what a person sees but a script misses.
+### Headless walk
+
+Screen control gives one session the cursor: a second session's walk waits
+for it, and every action costs a screenshot. A headless walk needs neither,
+so walks in different sessions can run at the same time.
+
+- **Own instance.** QA uses a simulator, emulator or browser instance of
+  its own, booted from the command line with no window, and a dev server
+  or bundler from the issue's workspace on a non-default port. It never
+  touches an instance or server another session started, and removes its
+  own when done
+- **Read the screen as data.** QA reads what the running app renders
+  (web: the DOM or accessibility tree through a headless browser such as
+  Playwright; mobile: the rendered component tree through the app's
+  debugger or inspector, or the platform's UI-hierarchy dump) and checks
+  the text, labels and current route against the criteria
+- **Act through the same channel.** Press, type and navigate from code
+  (browser automation calls; on mobile, the element's own press and text
+  handlers, deep links and the platform's device commands)
+- **Screenshots as evidence, not as eyes.** One command-line screenshot per
+  step, and QA looks at each: a tree that reads right on a blank or
+  crashed screen is a FAIL
+- **Keep the driver.** The script that connects and drives the app lives in
+  the project (the "Agent team notes" say where). QA reuses it and never
+  rewrites it per issue; an engineer fixes it when the app outgrows it
+- **Say what it can't see.** A headless walk does not catch real-touch
+  problems (a button under another element, gestures, the on-screen
+  keyboard). When a criterion depends on those, the verdict says so and
+  that step is done with screen control, or stays `PENDING E2E`
+- The verdict names the method ("headless walk")
+
+A project records its own recipe (how to boot an instance, load the
+branch, connect the driver, sign in a test account) in its "Agent team
+notes" under `qa-engineer`. The orchestrator passes the instance, the port
+and the driver path in the QA prompt.
+
+### Human check (only on request)
+
+The user may still ask to check a branch themselves. Then:
 
 1. Serve the branch from its own workspace on a non-default port (a second
    dev server or bundler) and open it on the user's simulator, emulator or
    browser. Never switch, detach or stash the user's main checkout to do it
-2. Post a check script as an issue comment, and show it to the user:
-   - **Setup**: how the branch is served and how to open it, the test
-     account and data to use, and how to switch back afterwards
-   - **Steps**: numbered, one action each, in the user's words (the
-     screen, the button, the input), with the **expected result** after
-     each. Build them from QA's `PENDING E2E` list; every pending
-     criterion is covered by at least one step
-   - **What to report**: pass/fail per step; for a fail, a screenshot or
-     one line on what they saw
-3. Keep `needs-e2e` while the user checks. Keep other work moving
-4. All steps pass → record it on the issue ("Human e2e check: PASS, steps
-   1–n") and continue to review / PR. A failed step → back to step 6 with
-   the user's report as the QA comment; it counts toward the 2-round cap.
-   Retest only the failed steps by hand
-5. Stop the extra server when the check is done
+2. Give numbered steps, one action each, with the expected result after
+   each, and the test account and data to use
+3. Record the result on the issue. A failed step goes back to step 6 with
+   the user's report as the QA comment
+4. Stop the extra server when the check is done
+
+A human check is extra. It never replaces the `e2e` walk, and the loop
+never waits for one the user didn't ask for.
 
 ## Labels
 
@@ -361,7 +404,8 @@ Every subagent prompt that runs commands includes the limits it must keep:
   issues or plan updates before verifying a finished build
 - An issue reaches a PR, is approved, or is closed (by hand or by merge)
   only with QA PASS and no blocking review findings.
-  An `automated` PASS with `PENDING E2E` criteria waits as `needs-e2e`
-  until the human e2e check passes (see QA mode)
-- Never launch `e2e` QA on usage credits (see QA mode)
+  `PASS (PENDING E2E)` is not a PASS: the issue waits until the `e2e`
+  walk has run and passed (see QA mode)
+- Never make a hand check by the user a step of the loop. The UI walk is
+  QA's job
 - Only the user merges PRs

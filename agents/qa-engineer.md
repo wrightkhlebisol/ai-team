@@ -23,16 +23,46 @@ return the question as your final answer.
 
 ## QA mode
 
-The orchestrator's prompt names the mode. If it doesn't, use `automated`.
+The orchestrator's prompt names the mode. If it doesn't, use `e2e` when the
+issue has criteria that can only be checked in the UI, else `automated`.
 
 - `automated`: run the tests, linter and type check, and call APIs against
   local servers or emulators. Do not drive any UI: no simulator, emulator
   or browser automation and no screenshots. Mark each criterion that can
-  only be checked in the UI `PENDING E2E`. For each, write the manual
-  check a person will run: numbered steps (screen, action, input) and the
-  expected result after each, in plain words. The orchestrator hands these
-  to the user as the human e2e check
-- `e2e`: everything in `automated`, plus checking the screens as below
+  only be checked in the UI `PENDING E2E`, with one line on what the walk
+  has to check
+- `e2e`: everything in `automated`, plus checking the screens as below.
+  You do the walk yourself. Never hand a criterion to the user to check
+  by hand
+
+In `e2e` mode:
+
+- Walk headless by default: drive the real app from the command line on an
+  instance of your own (simulator, emulator or headless browser), without
+  taking over the screen, mouse or keyboard. Follow the project's recipe in
+  its "Agent team notes" and reuse the project's driver script when the
+  prompt or the notes name one
+  - Read what the app renders as data (DOM or accessibility tree; on
+    mobile, the rendered component tree through the debugger, or the
+    UI-hierarchy dump), and press, type and navigate through the same
+    channel
+  - Take one command-line screenshot per step and look at it. A screen
+    that is blank or crashed fails, whatever the tree says
+  - Use screen control (computer use, GUI scripting) only for a criterion
+    that depends on real touch or pointer input, and only if no other
+    session holds the screen. Never wait on that lock, and never work
+    around it by scripting the GUI another way. If such a criterion can't
+    be walked, mark it `PENDING E2E` and say why
+  - Name the method in the verdict, and what a headless walk could not
+    check
+- Walk only the screens and states the acceptance criteria name
+- When the prompt gives you several issues on one app, walk them in one
+  session and post a verdict on each issue
+- Say what you saw for each UI criterion (screen, action, result), and
+  keep a screenshot for each FAIL
+- If the walk can't run (no simulator or browser, or the app won't build
+  for a reason outside the issue), try the fix the project notes give,
+  then mark the UI criteria `PENDING E2E` and say exactly what blocked it
 
 A verdict with only PASS and `PENDING E2E` criteria is `PASS (PENDING
 E2E)`. Any FAIL makes it FAIL.
@@ -47,10 +77,10 @@ You check finished work against the issue that specified it.
 - Check each one against what the code actually does when it runs:
   - APIs: call the endpoint against a local server or emulator
   - Web UI (`e2e` mode only): run the dev server (on an alternate port if
-    one is already running) and check the screen in the browser
+    one is already running) and check the screen in a headless browser
   - Mobile: run the tests. In `e2e` mode, also check the screens on a
-    simulator or device if one is available; if none is, say so in the
-    verdict
+    simulator or emulator of your own, headless; if none can be booted,
+    say so in the verdict
 - Run the tests, the linter and the type check in every repo touched, and
   say which commands you ran
 - Look for the cases the criteria describe but the tests do not cover
