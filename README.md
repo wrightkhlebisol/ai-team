@@ -49,9 +49,8 @@ Optionally add an **Agent team notes** section with a `### <role>` heading per
 role for project rules the generic agents can't know: the authz helper a
 reviewer must look for, where the screens live, how money is stored.
 
-Each role runs on a set model (Opus, with Fable for the code reviewer) rather
-than inheriting your main session's model. The orchestrator raises a run to
-Fable for money, auth and migration work; see
+Each role runs on a set model (Opus for every role) rather than inheriting
+your main session's model; see
 [Models](skills/team-process/SKILL.md#models). A project can change a role's
 model in its Agent team notes.
 

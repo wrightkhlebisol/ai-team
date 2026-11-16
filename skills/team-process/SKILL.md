@@ -38,7 +38,7 @@ process", "just do it").
 | Product designer | `ai-team:product-designer` subagent | opus | no (specs and mockups only) |
 | Engineer | `ai-team:software-engineer` subagent | opus | yes |
 | QA | `ai-team:qa-engineer` subagent | opus | no |
-| Reviewer | `ai-team:code-reviewer` subagent | fable | no |
+| Reviewer | `ai-team:code-reviewer` subagent | opus | no |
 | Business developer | `ai-team:business-developer` subagent (go-to-market only) | opus | no (business docs only) |
 | Product marketer | `ai-team:product-marketer` subagent (go-to-market only) | opus | no (marketing docs only) |
 
@@ -51,12 +51,11 @@ Each agent's frontmatter sets its default model, so subagents never inherit
 the main session's model by accident. A subagent with no model set runs on
 whatever the main session uses, which is often the most expensive tier.
 
-- The reviewer defaults to `fable`: it is the last check before a PR and
-  catches what the cheaper roles miss
-- Pass `model` on the launch to change one run. Raise the engineer to `fable`
-  for issues that touch money, authentication, authorisation or data
-  migrations, and for a fix round after a blocking review. Use `sonnet` for a
-  pure lookup
+- Every role defaults to `opus`, the reviewer included, and work that
+  touches money, authentication, authorisation or data migrations stays on
+  `opus` too. Don't raise a run above it unless the user asks
+- Pass `model` on the launch to change one run. Use `sonnet` for a pure
+  lookup
 - A resumed subagent keeps the model it started with. To run a follow-up on
   a cheaper model, launch a fresh agent with the full brief instead
 - A project can set its own defaults per role in its "Agent team notes"
